@@ -245,7 +245,7 @@ queue.process(CONFIG.logins.length, botController, async (job) => {
     const start_lookup = performance.now();
     const itemData = await botController.lookupFloat(job.data.link);
     const end_lookup = performance.now();
-    winston.debug(`lookupFloat() - ${start_lookup - end_lookup}ms`);
+    winston.debug(`lookupFloat() - ${end_lookup - start_lookup}ms`);
     winston.debug(`Received itemData for ${job.data.link.getParams().a}`);
 
     // Save and remove the delay attribute

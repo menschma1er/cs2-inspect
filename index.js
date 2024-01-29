@@ -63,7 +63,7 @@ app.use(function (req, res, next) {
     }
     next();
 });
-app.use(bodyParser.json({limit: '5mb'}));
+app.use(bodyParser.json({ limit: '5mb' }));
 
 app.use(function (error, req, res, next) {
     // Handle bodyParser errors
@@ -85,15 +85,26 @@ const allowedRegexOrigins = CONFIG.allowed_regex_origins.map((origin) => new Reg
 
 async function handleJob(job) {
     // See which items have already been cached
+    const start = performance.now();
     const itemData = await postgres.getItemData(job.getRemainingLinks().map(e => e.link));
+    const end = performance.now();
+    winston.info(`getItemData() - ${end - start} ms`);
+
     for (let item of itemData) {
         const link = job.getLink(item.a);
 
         if (!item.price && link.price) {
+            const start = performance.now();
             postgres.updateItemPrice(item.a, link.price);
+            const end = performance.now();
+            winston.info(`updateItemPrice() - ${end - start} ms`);
         }
 
+        const start = performance.now();
         gameData.addAdditionalItemProperties(item);
+        const end = performance.now();
+        winston.info(`addAdditionalItemProperties() - ${end - start} ms`);
+
         item = utils.removeNullValues(item);
 
         job.setResponse(item.a, item);
@@ -231,7 +242,10 @@ http_server.listen(CONFIG.http.port);
 winston.info('Listening for HTTP on port: ' + CONFIG.http.port);
 
 queue.process(CONFIG.logins.length, botController, async (job) => {
+    const start_lookup = performance.now();
     const itemData = await botController.lookupFloat(job.data.link);
+    const end_lookup = performance.now();
+    winston.debug(`lookupFloat() - ${start_lookup - end_lookup}ms`);
     winston.debug(`Received itemData for ${job.data.link.getParams().a}`);
 
     // Save and remove the delay attribute
@@ -243,7 +257,11 @@ queue.process(CONFIG.logins.length, botController, async (job) => {
 
     // Get rank, annotate with game files
     itemData.iteminfo = Object.assign(itemData.iteminfo, await postgres.getItemRank(itemData.iteminfo.a));
+    const start = performance.now();
     gameData.addAdditionalItemProperties(itemData.iteminfo);
+    const end = performance.now();
+    winston.info(`[queue.process] addAdditionalItemProperties() - ${end - start} ms`);
+
 
     itemData.iteminfo = utils.removeNullValues(itemData.iteminfo);
     itemData.iteminfo.stickers = itemData.iteminfo.stickers.map((s) => utils.removeNullValues(s));
